@@ -124,52 +124,26 @@ For each extracted insight:
 
 ## PHASE 4: Store Memory
 
-**Format**:
+**CRITICAL: Use COMPACT format to prevent memory bloat. Each memory = 3-5 sentences MAX.**
 
-**Episodic**:
-```markdown
-## [Date]: [Title]
+**Universal Format** (works for ALL memory types):
+```
+**Title:** <concise title>
+**Description:** <one sentence summary>
 
-**Context**: [What was happening in this project]
-**Investigation/Actions**: [What was tried, specific to this codebase - include failed attempts]
-**Outcome**: [What worked OR what failed and why in this project]
-**Files/Components**: [Specific files in this codebase]
-**Lessons**: [Key takeaways for future work - failures are equally valuable as successes]
-**Tags**: #tag1 #tag2 #success OR #failure
+**Content:** <3-5 sentences covering: what happened in this project, what was tried (including failures), what worked/failed, key lesson, relevant files/components>
+
+**Tags:** #tag1 #tag2 #success OR #failure
 ```
 
-**Procedural**:
-```markdown
-## Workflow: [Name] (Project-Specific)
-
-**When to use**: [Conditions in this project]
-
-**Steps**:
-1. [Action specific to this codebase]
-2. [Action]
-...
-
-**Project Context**: [Why this workflow exists for this project]
-**Variations**: [Alternative approaches in this codebase]
-**Tags**: #tag1 #tag2
-```
-
-**Semantic**:
-```markdown
-## Pattern/Principle: [Name] (Project-Specific)
-
-**Principle**: [Core idea specific to this project]
-
-**Why**: [Project-specific reasoning or domain constraints]
-
-**Implementation**: [How it's applied in this codebase]
-
-**Project Context**: [Architecture or domain that necessitates this]
-
-**When NOT to use**: [Contraindications in this project]
-
-**Tags**: #tag1 #tag2
-```
+**Formatting Rules**:
+- NO blank line between Title and Description
+- ONE blank line before Content
+- ONE blank line before Tags
+- Content MUST be 3-5 sentences (not paragraphs, not lists, not verbose sections)
+- Include project-specific file paths and components in Content
+- Include both failures and successes if relevant
+- Tag episodic memories with #episodic, procedural with #procedural, semantic with #semantic
 
 **Determine storage location**:
 1. **Read README.md** (if exists) in target memory type directory

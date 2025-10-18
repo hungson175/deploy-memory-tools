@@ -123,48 +123,25 @@ For each extracted insight:
 
 ## PHASE 4: Store Memory
 
-**Format**:
+**CRITICAL: Use COMPACT format to prevent memory bloat. Each memory = 3-5 sentences MAX.**
 
-**Episodic**:
-```markdown
-## [Date]: [Title]
+**Universal Format** (works for ALL memory types):
+```
+**Title:** <concise title>
+**Description:** <one sentence summary>
 
-**Context**: [What was happening, user request]
-**Investigation/Actions**: [What was tried, step-by-step - include failed attempts]
-**Outcome**: [What worked OR what failed and why]
-**Lessons**: [Key takeaways - failures are equally valuable as successes]
-**Tags**: #tag1 #tag2 #success OR #failure
+**Content:** <3-5 sentences covering: what happened, what was tried (including failures), what worked/failed, key lesson>
+
+**Tags:** #tag1 #tag2 #success OR #failure
 ```
 
-**Procedural**:
-```markdown
-## Workflow: [Name]
-
-**When to use**: [Conditions/scenarios]
-
-**Steps**:
-1. [Action]
-2. [Action]
-...
-
-**Variations**: [Alternative approaches]
-**Tags**: #tag1 #tag2
-```
-
-**Semantic**:
-```markdown
-## Pattern/Principle: [Name]
-
-**Principle**: [Core idea in one sentence]
-
-**Why**: [Explanation of reasoning]
-
-**Implementation**: [How to apply it]
-
-**When NOT to use**: [Contraindications]
-
-**Tags**: #tag1 #tag2
-```
+**Formatting Rules**:
+- NO blank line between Title and Description
+- ONE blank line before Content
+- ONE blank line before Tags
+- Content MUST be 3-5 sentences (not paragraphs, not lists, not verbose sections)
+- Include both failures and successes in Content if relevant
+- Tag episodic memories with #episodic, procedural with #procedural, semantic with #semantic
 
 **Determine storage location**:
 1. **Read README.md** (if exists) in target memory type directory
