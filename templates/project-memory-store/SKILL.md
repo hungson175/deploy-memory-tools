@@ -1,6 +1,6 @@
 ---
 name: Project Memory Store
-description: Store project-specific insights and context into file-based memory. Use after completing tasks that reveal important details about THIS codebase. Use when user says "--project-store" or "--learn" (you decide which scope, may use both) or after discovering project-specific patterns. Skip for universal patterns (use coder-memory-store) or routine work.
+description: Store project-specific insights and context into file-based memory. Use after completing tasks that reveal important details about THIS codebase. Use when user says "--project-store" or "--learn" (you decide which scope, may use both) or after discovering project-specific patterns. ALSO invoke when user expresses strong frustration using trigger words like "fuck", "fucking", "shit", "moron", "idiot", "stupid", "garbage", "useless", "terrible", "wtf", "this is ridiculous", "you're not listening" - these are CRITICAL learning signals for storing project-specific failure patterns. Skip for universal patterns (use coder-memory-store) or routine work.
 ---
 
 

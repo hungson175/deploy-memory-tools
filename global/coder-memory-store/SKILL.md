@@ -1,6 +1,6 @@
 ---
 name: Coder Memory Store
-description: Store universal coding patterns and insights into file-based memory. Use after completing difficult tasks with broadly-applicable lessons that work across ANY project. Use when user says "--coder-store" or "--learn" (you decide which scope, may use both) or after discovering framework-agnostic patterns. Skip for routine work or project-specific details (use project-memory-store).
+description: Store universal coding patterns and insights into file-based memory. Use after completing difficult tasks with broadly-applicable lessons that work across ANY project. Use when user says "--coder-store" or "--learn" (you decide which scope, may use both) or after discovering framework-agnostic patterns. ALSO invoke when user expresses strong frustration using trigger words like "fuck", "fucking", "shit", "moron", "idiot", "stupid", "garbage", "useless", "terrible", "wtf", "this is ridiculous", "you're not listening" - these are CRITICAL learning signals for storing failure patterns. Skip for routine work or project-specific details (use project-memory-store).
 ---
 
 
