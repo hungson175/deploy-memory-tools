@@ -36,6 +36,14 @@ This repository contains **Human-Like Memory Skills for Claude Code** - a file-b
 - Cross-promotion: project patterns can promote to universal patterns
 - Self-refactoring when structure becomes unclear
 - Max depth: 2 levels (e.g., `episodic/debugging/`)
+- Optional Qdrant vector search enhancement (see Qdrant Integration section)
+
+**Recall-Before-Plan Workflow**:
+When starting non-trivial tasks, Claude Code should:
+1. **Invoke memory recall FIRST** (using Task tool with subagent_type="general-purpose")
+2. **Wait for recall results** before creating task plan
+3. **Then use TodoWrite** to create plan informed by recalled memories
+4. This prevents forgetting past insights and repeating past mistakes
 
 ### Directory Structure
 
@@ -53,10 +61,17 @@ deploy-memory-tools/
 │       └── SKILL.md
 ├── commands/                         # Claude Code slash commands
 │   └── create-project-memory-skills.md
+├── docs/                             # Documentation
+│   ├── qdrant_migration_plan.md    # Qdrant migration details
+│   └── migration_complete.md       # Migration results
+├── sample_codes/                     # REFERENCE ONLY - has NO effect on project
+│   └── [Reference MCP implementations from other projects]
 ├── install.md                        # Installation instructions
 ├── QUICKSTART.md                     # Usage guide
 └── README.md                         # Quick start guide
 ```
+
+**IMPORTANT**: The `sample_codes/` directory contains reference implementations from other projects (e.g., ReasoningBank). These files are for study/reference ONLY and have NO effect on this project whatsoever. Do not read or use them unless explicitly instructed.
 
 ### Installation Flow
 
@@ -222,6 +237,39 @@ Key documentation files:
 - Storage skill logic: `global/coder-memory-store/SKILL.md:1-207`
 - Recall skill logic: `global/coder-memory-recall/SKILL.md:1-172`
 - Command definition: `commands/create-project-memory-skills.md:1-18`
+
+## Qdrant Integration (Optional Enhancement)
+
+**Status**: Qdrant populated with 72 memories from global coder-memory-store. Skills updated to support optional vector search.
+
+**Main Principle**: Vector search is ADDITIONAL tool to help find similar memories (may be wrong/outdated). File-based navigation is PRIMARY method - it works great and will continue to work.
+
+**Qdrant Configuration**:
+- **Service**: Running on localhost:6333 as persistent Docker service
+- **Collections**:
+  - `coder-memory` for global memories
+  - `proj-{sanitized-project-name}` for project-specific memories
+- **Vector Model**: text-embedding-3-small (1536 dimensions, Cosine similarity)
+- **Metadata**: memory_level, memory_type, file_path, skill_root, tags, title, timestamps
+
+**Integration in SKILL.md Files**:
+- **Recall skills**: Optional vector search in Phase 2 (Step 0) for file hints
+- **Store skills**: Optional vector search in Phase 2 for finding similar memories + dual-write in Phase 4
+- **Query strategy**: Use FULL context/memory text (not just keywords) for better semantic matching
+- **Graceful degradation**: Skills work perfectly if Qdrant unavailable
+
+**Source of Truth**: Files in `~/.claude/skills/` and `{project}/.claude/skills/` (always). Qdrant is just a search index that may be stale.
+
+**Sync Strategy**:
+- **Automatic**: Crontab job runs every Monday at 11AM to recreate vector database from files
+- **Setup**: Run the command in `docs/crontab_setup.md` to install crontab entry
+- **Manual**: Run `./sync_memories.sh` anytime to trigger sync
+- **Logs**: Check `sync.log` for sync history
+- Skills can optionally update Qdrant via dual-write, but file writes are primary
+
+**MCP Server**: Provides `search_memory()` and `store_memory()` tools. See `docs/qdrant_memory_design.md` for implementation details.
+
+---
 
 ## Success Criteria After Installation
 

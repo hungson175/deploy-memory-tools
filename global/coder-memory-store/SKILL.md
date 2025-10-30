@@ -1,8 +1,11 @@
 ---
 name: Coder Memory Store
-description: Store universal coding patterns and insights into file-based memory. Use after completing difficult tasks with broadly-applicable lessons that work across ANY project. Use when user says "--coder-store" or "--learn" (you decide which scope, may use both) or after discovering framework-agnostic patterns. ALSO invoke when user expresses strong frustration using trigger words like "fuck", "fucking", "shit", "moron", "idiot", "stupid", "garbage", "useless", "terrible", "wtf", "this is ridiculous", "you're not listening" - these are CRITICAL learning signals for storing failure patterns. Skip for routine work or project-specific details (use project-memory-store).
+description: Store universal coding patterns and insights into file-based memory. Use after completing difficult tasks with broadly-applicable lessons that work across ANY project. Use when user says "--coder-store" or "--learn" (you decide which scope, may use both) or after discovering framework-agnostic patterns. ALSO invoke when user expresses strong frustration using trigger words like "fuck", "fucking", "shit", "moron", "idiot", "stupid", "garbage", "useless", "terrible", "wtf", "this is ridiculous", "you're not listening" - these are CRITICAL learning signals for storing failure patterns. Skip for routine work or project-specific details (use project-memory-store).This Skill MUST be executed using Task tool with subagent_type="general-purpose". Runs in separate context to avoid polluting main conversation.
 ---
 
+# Coder Memory Store
+
+**⚠️ EXECUTION CONTEXT**: This Skill MUST be executed using Task tool with subagent_type="general-purpose". Runs in separate context to avoid polluting main conversation.
 
 **Purpose**: Extract and store **universal coding patterns** (episodic/procedural/semantic) into file-based memory at `~/.claude/skills/coder-memory-store/`.
 
@@ -71,13 +74,36 @@ For each extracted insight:
 
 **Step 1: Determine target memory type** (episodic/procedural/semantic)
 
-**Step 2: Search existing files**
-- Use Grep to search for keywords across memory files
+**Step 2 (Optional): Try Vector Search First**
+
+**If Qdrant MCP server available**, try semantic search for similar memories:
+
+1. **Construct query** from new memory - Use full formatted memory for better matching:
+   - Use: Title + Description + Content (the complete formatted memory text)
+   - This gives embedding model sufficient context for semantic similarity
+
+2. **Call search_memory** MCP tool:
+   ```
+   search_memory(
+       query="<full formatted memory text>",
+       memory_level="coder",
+       limit=5
+   )
+   ```
+3. **Extract file_path hints** and similarity scores
+4. **If <3 results or tool unavailable**: Continue to file-based search below
+
+**IMPORTANT**: Vector results may be outdated. Use as hints to guide file search, not as absolute truth.
+
+---
+
+**Step 3: File-Based Search (Primary Method)**
+- Use Grep to search for keywords across memory files (prioritize hinted paths if available)
 - Search in target memory type directory (e.g., `~/.claude/skills/coder-memory-store/episodic/`)
 - Look for similar titles, tags, or core concepts
 - Read files with potential matches
 
-**Step 3: Check similarity**
+**Step 4: Check similarity**
 - If found similar content: Read full context
 - Determine if: Duplicate, Related, or Different
 
@@ -152,12 +178,40 @@ For each extracted insight:
 3. **Max depth**: 2 levels (e.g., `semantic/error-handling/` is deepest)
 
 **Execute storage**:
-1. Write formatted memory to file (merge, update, append, or create)
-2. If file becomes "too long" with unrelated info:
+1. **Write to file (Source of Truth)**:
+   - Write formatted memory to file (merge, update, append, or create)
+   - File write is PRIMARY - must succeed
+
+2. **Optional: Dual-Write to Qdrant**:
+
+   **If Qdrant MCP server available**, also store to vector database:
+
+   ```
+   store_memory(
+       document="<full formatted memory text>",
+       metadata={
+           "memory_level": "coder",
+           "memory_type": "<episodic|procedural|semantic>",
+           "file_path": "<relative path from coder-memory-store/>",
+           "skill_root": "coder-memory-store",
+           "tags": ["<tag1>", "<tag2>"],
+           "title": "<memory title>",
+           "created_at": "<ISO timestamp>",
+           "last_synced": "<ISO timestamp>"
+       },
+       memory_level="coder"
+   )
+   ```
+
+   - If dual-write fails: Log warning but continue (file write already succeeded)
+   - If tool unavailable: Skip silently
+
+3. If file becomes "too long" with unrelated info:
    - Create subdirectory with topic name
    - Move related memories to new file in subdirectory
    - Create README.md in subdirectory as overview
-3. Update parent README.md to reference new structure
+
+4. Update parent README.md to reference new structure
 
 ---
 
@@ -204,3 +258,9 @@ Consider using project-memory-store for project-specific insights.
 ## Self-Maintenance Note
 
 This skill's memory files can be refactored by coder-memory-recall when organization becomes unclear. The recall skill will invoke general-purpose agent to reorganize structure if needed.
+
+---
+
+## Tool Usage
+
+**CRITICAL**: Invoke via Task tool with general-purpose agent. Never execute directly in main context.

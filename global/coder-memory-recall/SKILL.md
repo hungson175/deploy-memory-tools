@@ -1,7 +1,6 @@
 ---
 name: Coder Memory Recall
-description: Retrieve universal coding patterns from file-based memory. Use when starting complex tasks, encountering unfamiliar problems, or user says "--coder-recall" or "--recall" (you decide which scope, may use both). Skip for routine tasks or project-specific questions (use project-memory-recall). MUST be invoked using Task tool to avoid polluting main context.
-allowed-tools: Task
+description: Retrieve universal coding patterns from file-based memory. Use when starting complex tasks, encountering unfamiliar problems, or user says "--coder-recall" or "--recall" (you decide which scope, may use both). Skip for routine tasks or project-specific questions (use project-memory-recall). This Skill MUST be executed using Task tool with subagent_type="general-purpose". Runs in separate context to avoid polluting main conversation.
 ---
 
 # Coder Memory Recall
@@ -54,14 +53,44 @@ Memory types available:
 
 ---
 
-## PHASE 2: Navigate Memory Structure
+## PHASE 2: Search for Relevant Memories
+
+### Step 0 (Optional): Try Vector Search First
+
+**If Qdrant MCP server available**, try semantic search for file hints:
+
+1. **Construct vector query** - Use full summary for better semantic matching:
+   - If user provided query: Use their question/description as-is
+   - If inferring from task: Write 2-3 sentence summary of what you're looking for
+   - Include key concepts, technical terms, and problem description
+   - Keep concise but descriptive (not just keywords, not entire context)
+
+2. **Call search_memory** MCP tool:
+   ```
+   search_memory(
+       query="<2-3 sentence summary of what you're looking for>",
+       memory_level="coder",
+       limit=5
+   )
+   ```
+3. **Extract file_path hints** from top results
+4. **Evaluate sufficiency**:
+   - If vector results provide enough relevant information to answer the query: You may skip to Phase 3 (present those results)
+   - If results seem incomplete, outdated, or you need verification: Continue to file-based navigation below
+   - If <3 results or tool unavailable: Continue to file-based navigation below
+
+**IMPORTANT**: Vector results may be outdated (files could have moved/changed). You decide whether they're sufficient or if file verification is needed. Progressive disclosure is optional if vector search already provided good answers.
+
+---
+
+### File-Based Navigation (Primary Method)
 
 For each target memory type:
 
 1. **Read README.md** (if exists) in memory type directory
-2. **Identify relevant subdirectories** based on query
+2. **Identify relevant subdirectories** based on query (use file_path hints if available)
 3. **Read targeted files**:
-   - Use Grep to search for keywords across files
+   - Use Grep to search for keywords across files (prioritize hinted paths if available)
    - Use Read to load promising files
    - Progressive disclosure: Read READMEs first, then specific files
 
