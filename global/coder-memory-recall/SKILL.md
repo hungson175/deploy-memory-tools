@@ -73,13 +73,14 @@ Memory types available:
        limit=5
    )
    ```
-3. **Extract file_path hints** from top results
-4. **Evaluate sufficiency**:
-   - If vector results provide enough relevant information to answer the query: You may skip to Phase 3 (present those results)
-   - If results seem incomplete, outdated, or you need verification: Continue to file-based navigation below
+3. **Extract file_path hints** and similarity scores from top results
+4. **Use hints to guide file-based search**:
+   - Vector results are hints only (may be outdated/wrong)
+   - Always proceed to file-based navigation below
+   - Use file_path hints to prioritize which files to read first
    - If <3 results or tool unavailable: Continue to file-based navigation below
 
-**IMPORTANT**: Vector results may be outdated (files could have moved/changed). You decide whether they're sufficient or if file verification is needed. Progressive disclosure is optional if vector search already provided good answers.
+**IMPORTANT**: Vector search is an ADDITIONAL tool to help find similar memories, not a replacement for progressive disclosure. Always use file-based navigation to verify and retrieve complete information.
 
 ---
 

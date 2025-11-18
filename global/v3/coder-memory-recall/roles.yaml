@@ -1,0 +1,151 @@
+# Role-Based Memory Collections Configuration
+# This file defines available roles and their Qdrant collections for V3 memory system
+
+roles:
+  # Universal coding patterns - cross-domain, framework-agnostic
+  coder:
+    collection: "coder-memory"
+    description: "Universal coding patterns that apply across any project, language, or framework"
+    common_tags:
+      - general
+      - architecture
+      - debugging
+      - best-practices
+      - performance
+    memory_types:
+      - episodic
+      - procedural
+      - semantic
+
+  # Backend development - APIs, databases, server-side logic
+  backend-dev:
+    collection: "backend-dev"
+    description: "Backend engineering patterns: APIs, databases, server architecture, authentication, etc."
+    common_tags:
+      - api
+      - database
+      - authentication
+      - authorization
+      - rest
+      - graphql
+      - orm
+      - caching
+      - queues
+      - microservices
+    memory_types:
+      - episodic
+      - procedural
+      - semantic
+
+  # Frontend development - UI, UX, client-side logic
+  frontend-dev:
+    collection: "frontend-dev"
+    description: "Frontend engineering patterns: React, Vue, UI components, state management, etc."
+    common_tags:
+      - react
+      - vue
+      - angular
+      - ui
+      - ux
+      - components
+      - state-management
+      - routing
+      - forms
+      - accessibility
+    memory_types:
+      - episodic
+      - procedural
+      - semantic
+
+  # Financial engineering - Quantitative analysis, trading systems, risk management
+  financial-engineer:
+    collection: "financial-engineer"
+    description: "Quantitative finance patterns: trading systems, backtesting, risk management, financial modeling"
+    common_tags:
+      - trading
+      - backtesting
+      - risk-management
+      - portfolio
+      - options
+      - derivatives
+      - market-data
+      - quantitative
+      - algorithmic-trading
+    memory_types:
+      - episodic
+      - procedural
+      - semantic
+
+# Metadata schema for all memories
+metadata_schema:
+  required:
+    - memory_level: "coder|project"
+    - memory_type: "episodic|procedural|semantic"
+    - role: "coder|backend-dev|frontend-dev|financial-engineer"
+    - file_path: "role/subdomain/topic (reference only, no actual file)"
+    - skill_root: "coder-memory-store|coder-memory-recall"
+    - tags: ["array of strings"]
+    - title: "Memory title"
+    - created_at: "ISO 8601 timestamp"
+    - last_synced: "ISO 8601 timestamp"
+
+  optional:
+    - last_recall_time: "ISO 8601 timestamp (null until first recall)"
+    - last_updated: "ISO 8601 timestamp"
+    - source_conversation: "Conversation ID or reference"
+
+# Memory format (enforced across all roles)
+memory_format: |
+  **Title:** <concise title>
+  **Description:** <one sentence summary>
+
+  **Content:** <3-5 sentences covering: what happened, what was tried (including failures), what worked/failed, key lesson>
+
+  **Tags:** #tag1 #tag2 #success OR #failure
+
+# Query strategies
+query_strategies:
+  semantic_search:
+    description: "Use full 2-3 sentence summary for vector search, not just keywords"
+    query_length: "2-3 sentences with technical terms and problem description"
+    limit: 10
+    note: "search_memory returns previews (title + summary). Use get_memory() to retrieve full content for selected memories."
+
+  hybrid_validation:
+    description: "Use LLM intelligence to validate vector results for temporal/contextual accuracy (no rigid thresholds)"
+    check:
+      - "Same metric/topic?"
+      - "Same time period?"
+      - "Same domain?"
+      - "Same granularity?"
+    note: "Trust agent judgment over fixed similarity scores"
+
+# Consolidation actions (agent uses intelligent judgment, no fixed thresholds)
+consolidation_matrix:
+  MERGE:
+    when: "Near-duplicate content covering same experience"
+    validation: "Semantic similarity + contextual match"
+    action: "Combine into stronger entry, delete old"
+
+  UPDATE:
+    when: "Related memory on same topic needing enhancement"
+    validation: "Same topic with complementary details"
+    action: "Update existing memory, regenerate embedding"
+
+  GENERALIZE:
+    when: "Pattern emerges from 2+ similar episodic memories"
+    validation: "Multiple instances show common pattern"
+    action: "Create semantic memory from pattern"
+
+  CREATE:
+    when: "Different topic or orthogonal approach"
+    validation: "Low overlap or different context"
+    action: "Store as new memory"
+
+  note: "Agent decides action based on intelligence, not rigid similarity scores"
+
+# Forgetting mechanism (future - V3.1+)
+forgetting:
+  enabled: false  # Not implemented yet
+  threshold_days: 30  # >30 days no recall → mark for archival
+  action: "Archive to separate collection (not delete)"
