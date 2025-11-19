@@ -18,8 +18,11 @@ from openai import OpenAI
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointIdsList, PointStruct, VectorParams
 
-# Load environment
-load_dotenv()
+# Load environment - specify absolute path to .env file
+# This ensures it works regardless of which directory Claude Code runs from
+script_dir = Path(__file__).parent.resolve()
+env_file = script_dir / ".env"
+load_dotenv(dotenv_path=env_file)
 
 # Configuration
 QDRANT_URL = "http://localhost:6333"
