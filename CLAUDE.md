@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains **Human-Like Memory Skills for Claude Code** - a file-based memory system that allows Claude to store and recall universal coding patterns and project-specific knowledge across conversations. No vector database or embeddings required - just files, folders, and Claude's intelligence.
+This repository contains **Human-Like Memory Skills for Claude Code** - a persistent memory system that enables Claude to learn from past experiences, store universal coding patterns, and project-specific knowledge. Currently at **V3.2** (clean vector architecture with true two-stage retrieval). Supports both file-based navigation and optional Qdrant vector search for finding relevant memories.
 
 ## Architecture
 
@@ -49,39 +49,59 @@ When starting non-trivial tasks, Claude Code should:
 
 ```
 deploy-memory-tools/
-├── global/                           # Global skills to install
-│   ├── coder-memory-store/          # Universal pattern storage
-│   │   └── SKILL.md
-│   └── coder-memory-recall/         # Universal pattern retrieval
-│       └── SKILL.md
+├── global/                           # Skills to install globally
+│   ├── coder-memory-store/          # V3.x storage (legacy - still works)
+│   ├── coder-memory-recall/         # V3.x retrieval (legacy - still works)
+│   └── v3.2/                        # V3.2 - Current version (recommended)
+│       ├── coder-memory-store/      # Two-stage retrieval, embedded config
+│       ├── coder-memory-recall/     # Vector search integration
+│       └── README.md                # V3.2 architecture details
 ├── templates/                        # Templates for project skills
-│   ├── project-memory-store/
-│   │   └── SKILL.md
-│   └── project-memory-recall/
-│       └── SKILL.md
+│   ├── project-memory-store/        # Legacy template
+│   └── project-memory-recall/       # Legacy template
 ├── commands/                         # Claude Code slash commands
 │   └── create-project-memory-skills.md
-├── docs/                             # Documentation
-│   ├── qdrant_migration_plan.md    # Qdrant migration details
-│   └── migration_complete.md       # Migration results
-├── sample_codes/                     # REFERENCE ONLY - has NO effect on project
-│   └── [Reference MCP implementations from other projects]
-├── install.md                        # Installation instructions
+├── docs/                             # Documentation & design
+│   ├── qdrant_memory_design.md      # Vector search integration details
+│   ├── crontab_setup.md             # Auto-sync scheduling
+│   └── reports/                     # Migration reports
+├── qdrant_storage/                   # Persistent vector database
+│   └── [collections data]
+├── [Development Tools]
+│   ├── test_v3.2_system.py          # Full system test suite
+│   ├── deploy_v3.2.sh               # Complete deployment script
+│   ├── migrate_v3_to_v3.2.py        # Migration from V3 → V3.2
+│   ├── migrate_memories.py          # Memory format migration
+│   ├── qdrant_memory_mcp_server.py  # V1 MCP server (legacy)
+│   ├── qdrant_memory_mcp_server_v2.py # V2 MCP server (current)
+│   └── sync_memories.sh             # Manual vector DB sync
+├── install.md                        # Legacy installation (V3)
 ├── QUICKSTART.md                     # Usage guide
-└── README.md                         # Quick start guide
+└── README.md                         # Getting started
 ```
 
-**IMPORTANT**: The `sample_codes/` directory contains reference implementations from other projects (e.g., ReasoningBank). These files are for study/reference ONLY and have NO effect on this project whatsoever. Do not read or use them unless explicitly instructed.
+**Key Points**:
+- **Current Version**: V3.2 (in `global/v3.2/`) - use this for new installations
+- **Legacy Versions**: V3 and earlier in `global/` root - still functional but superseded
+- **Vector Database**: Qdrant (`qdrant_storage/`) persists across sessions
+- The `sample_codes/` directory (if present) contains reference implementations ONLY and has NO effect on this project
 
 ### Installation Flow
 
-1. User copies this directory to their working project
-2. Claude executes `install.md` which:
-   - Installs global skills to `~/.claude/skills/`
-   - Installs templates to `~/.claude/skills/templates/`
-   - Installs `/create-project-memory-skills` command to `~/.claude/commands/`
-   - Initializes project memory in current directory's `.claude/skills/`
-3. User restarts Claude Code to load skills
+**Recommended: Use V3.2 with Qdrant vector search**
+
+1. **Prerequisites**: Qdrant running (`docker run -p 6333:6333 qdrant/qdrant`), `.env` with `OPENAI_API_KEY`
+2. **Execute**: `./deploy_v3.2.sh` (automated: tests → backup → install → MCP config → optional migration)
+3. **Install MCP server**: Updated `~/.config/claude/mcp.json` to include `qdrant-memory-v2`
+4. **Restart Claude Code** to load V3.2 skills with vector search enabled
+
+**Alternative: Manual V3.2 Installation**
+
+Follow steps in `global/v3.2/README.md` section "Installation" for step-by-step manual setup.
+
+**Legacy: V3 Installation**
+
+Execute `install.md` for file-based V3 setup (without vector search). Still works but less efficient.
 
 ### Memory Storage Format
 
@@ -104,6 +124,50 @@ deploy-memory-tools/
 | Related | **UPDATE** | Add new info, show evolution |
 | Pattern emerges | **GENERALIZE** | Episodic → Semantic promotion |
 | Different | **CREATE** | New file/section |
+
+## V3.2 Improvements (Current Version)
+
+### What Changed from V3
+
+| Aspect | V3 | V3.2 |
+|--------|----|----|
+| **Two-stage retrieval** | Documented but not implemented | Actually implemented in MCP v2 |
+| **Role configuration** | Duplicated in 3 places (roles.yaml files) | Embedded directly in SKILL.md |
+| **Collection names** | Inconsistent (coder-memory, backend-dev, etc.) | Clean and simple (universal-patterns, backend-patterns) |
+| **MCP tool outputs** | Returns full content for every search | Previews first, full content only when requested |
+| **Token efficiency** | High (returns full memories) | ~60% savings with preview-based search |
+| **Architecture** | Messy mix of files and configs | Clean, consistent, single-source-of-truth |
+| **Status** | Partially functional | Fully working as documented |
+
+### Key V3.2 Features
+
+1. **True Two-Stage Retrieval**:
+   - Search returns lightweight previews (title, description, metadata)
+   - Agent reviews previews and selects relevant ones
+   - Only selected memories retrieved in full (saves ~60% tokens)
+   - Zero token waste on full content retrieval
+
+2. **Embedded Configuration**:
+   - No external `roles.yaml` files
+   - Role config embedded in each SKILL.md
+   - Single source of truth per skill
+   - Cleaner directory structure
+
+3. **Simplified Collections**:
+   - Global: `universal-patterns`, `backend-patterns`, `frontend-patterns`, etc.
+   - Project: `proj-{project-name}`
+   - Consistent naming across all integrations
+
+4. **Intelligent Consolidation** (Agent-Driven):
+   - No rigid thresholds
+   - Agent decides MERGE/UPDATE/GENERALIZE/CREATE based on context
+   - Better handling of nuanced relationships between memories
+
+### When to Use Each Version
+
+- **New projects**: Always use V3.2 (better architecture, lower costs)
+- **Existing V3 deployments**: Run `python3 migrate_v3_to_v3.2.py` to upgrade
+- **V3 reference**: Use V3 source in `global/` for backwards compatibility testing only
 
 ## Learning Signals & Feedback Recognition
 
@@ -158,43 +222,57 @@ When these trigger words appear in user feedback:
 **Tags:** #failure #strong-signal #episodic #file-context #attention-to-detail
 ```
 
-## Common Commands
+## Development Workflow
 
-### Installation
+### Testing & Validation
 
-**Execute the installation**:
+**Run V3.2 system tests** (validates two-stage retrieval, Qdrant integration):
 ```bash
-# Install global skills
-mkdir -p ~/.claude/skills/coder-memory-store
-cp -r global/coder-memory-store/* ~/.claude/skills/coder-memory-store/
-
-mkdir -p ~/.claude/skills/coder-memory-recall
-cp -r global/coder-memory-recall/* ~/.claude/skills/coder-memory-recall/
-
-# Install templates
-mkdir -p ~/.claude/skills/templates/project-memory-store
-cp -r templates/project-memory-store/* ~/.claude/skills/templates/project-memory-store/
-
-mkdir -p ~/.claude/skills/templates/project-memory-recall
-cp -r templates/project-memory-recall/* ~/.claude/skills/templates/project-memory-recall/
-
-# Install command
-mkdir -p ~/.claude/commands
-cp commands/create-project-memory-skills.md ~/.claude/commands/create-project-memory-skills.md
-
-# Initialize project memory (or use /create-project-memory-skills after restart)
-mkdir -p .claude/skills/project-memory-store
-cp -r ~/.claude/skills/templates/project-memory-store/* .claude/skills/project-memory-store/
-
-mkdir -p .claude/skills/project-memory-recall
-cp -r ~/.claude/skills/templates/project-memory-recall/* .claude/skills/project-memory-recall/
+# Prerequisites: Qdrant running on localhost:6333, .env with OPENAI_API_KEY
+python3 test_v3.2_system.py
 ```
 
-**CRITICAL: Avoid Nested Directories**:
-- WRONG: `cp -r deploy/global/coder-memory-store ~/.claude/skills/` (creates nested dirs)
-- CORRECT: `cp -r deploy/global/coder-memory-store/* ~/.claude/skills/coder-memory-store/` (flat structure)
+**Full deployment with tests** (includes backup, installation, migration):
+```bash
+# Backs up existing skills, installs V3.2, updates MCP config, optionally migrates from V3
+./deploy_v3.2.sh
+```
 
-Always verify with `ls` that structure is FLAT after installation.
+### Common Commands
+
+**Install V3.2 (Current Version)**:
+```bash
+# Quick install (manual steps)
+mkdir -p ~/.claude/skills
+cp -r global/v3.2/coder-memory-store ~/.claude/skills/
+cp -r global/v3.2/coder-memory-recall ~/.claude/skills/
+
+# Install MCP server v2 (for Qdrant integration)
+mkdir -p ~/scripts
+cp qdrant_memory_mcp_server_v2.py ~/scripts/
+chmod +x ~/scripts/qdrant_memory_mcp_server_v2.py
+```
+
+**Migrate from V3 to V3.2**:
+```bash
+# Automatic migration (remaps collections, preserves all memories)
+python3 migrate_v3_to_v3.2.py
+
+# Inspect results
+tail -n 50 /tmp/v3.2_migration.log
+```
+
+**Sync Qdrant with file system** (recreates vector database from current files):
+```bash
+./sync_memories.sh
+# Check: tail -n 20 sync.log
+```
+
+**CRITICAL: Avoid Nested Directories** during manual installation:
+- WRONG: `cp -r global/v3.2/coder-memory-store ~/.claude/skills/` (creates nested dirs)
+- CORRECT: `cp -r global/v3.2/coder-memory-store/* ~/.claude/skills/coder-memory-store/` (flat structure)
+
+Always verify with `ls ~/.claude/skills/` that structure is FLAT after installation.
 
 ### Usage Commands
 
@@ -229,55 +307,124 @@ Users interact with skills via special flags:
 
 7. **Self-Maintenance**: Recall skills automatically trigger refactoring if memory structure becomes messy (>5 file reads to find relevant memories, duplicates found, unrelated content mixed).
 
+## Code Organization & Development Patterns
+
+### Key Files to Understand
+
+**V3.2 Implementation** (current recommended version):
+- `global/v3.2/README.md` - Architecture decisions and design rationale
+- `global/v3.2/coder-memory-store/SKILL.md` - Two-stage storage with embedded config
+- `global/v3.2/coder-memory-recall/SKILL.md` - Vector search + file-based fallback
+- `docs/qdrant_memory_design.md` - Detailed MCP server implementation
+
+**Development & Testing**:
+- `test_v3.2_system.py` - Full integration test suite (requires Qdrant + OpenAI API)
+- `deploy_v3.2.sh` - Production deployment script (tests → backup → install)
+- `migrate_v3_to_v3.2.py` - Collection remapping and memory migration
+- `qdrant_memory_mcp_server_v2.py` - MCP server implementation (two-stage retrieval)
+
+**Compatibility & Migration**:
+- `global/v3/` - Legacy V3 implementation (file-based, no MCP server)
+- `qdrant_memory_mcp_server.py` - Legacy MCP server v1 (for reference)
+- `migrate_memories.py` - Memory format conversions (if needed)
+
+### Design Patterns
+
+1. **Memory Consolidation**:
+   - Search for similar memories BEFORE storing
+   - Agent decides: MERGE (duplicate) vs UPDATE (related) vs GENERALIZE (pattern) vs CREATE (new)
+   - Always preserve failure context - failures are more valuable than successes
+
+2. **Two-Stage Retrieval** (V3.2):
+   - Phase 1: `search_memory()` returns previews (title, description, metadata)
+   - Phase 2: Agent selects relevant ones → `batch_get_memories()` fetches full content
+   - Benefit: 60% token savings on irrelevant memories
+
+3. **Role-Based Organization**:
+   - Each skill detects task context (API work → backend, React → frontend, trading → quant)
+   - Collections organized by role for focused recalls
+   - Prevents dilution when searching (100 memories vs 1000+)
+
+4. **Progressive Disclosure**:
+   - Start with README (overview)
+   - Then read specific files (episodic/debugging/, procedural/testing/, etc.)
+   - Load full memories only when relevant (lazy loading principle)
+
+### When Developing Changes
+
+- **Test first**: `python3 test_v3.2_system.py` to ensure Qdrant connectivity
+- **Backup before deploy**: `./deploy_v3.2.sh` creates automatic backups
+- **Migration testing**: `python3 migrate_v3_to_v3.2.py` validates collection mapping
+- **Vector sync**: `./sync_memories.sh` ensures Qdrant stays in sync with files
+- **MCP integration**: Test via Claude Code using memory recall/store flags
+
 ## File References
 
 Key documentation files:
-- Installation instructions: `install.md`
-- Usage guide: `QUICKSTART.md:1-221`
-- Storage skill logic: `global/coder-memory-store/SKILL.md:1-207`
-- Recall skill logic: `global/coder-memory-recall/SKILL.md:1-172`
-- Command definition: `commands/create-project-memory-skills.md:1-18`
+- **Getting Started**: `README.md`, `QUICKSTART.md:1-50`
+- **V3.2 Architecture**: `global/v3.2/README.md:1-100`
+- **Installation**: `install.md` (V3), `deploy_v3.2.sh` (V3.2 automated)
+- **Storage Logic**: `global/v3.2/coder-memory-store/SKILL.md`
+- **Recall Logic**: `global/v3.2/coder-memory-recall/SKILL.md`
+- **MCP Design**: `docs/qdrant_memory_design.md`
+- **Command**: `commands/create-project-memory-skills.md`
 
-## Qdrant Integration (Optional Enhancement)
+## Qdrant Integration (Recommended)
 
-**Status**: Qdrant populated with 72 memories from global coder-memory-store. Skills updated to support optional vector search.
+**Status**: V3.2 fully integrated with Qdrant MCP server v2. Two-stage retrieval implemented and tested.
 
-**Main Principle**: Vector search is ADDITIONAL tool to help find similar memories (may be wrong/outdated). File-based navigation is PRIMARY method - it works great and will continue to work.
-
-**Qdrant Configuration**:
-- **Service**: Running on localhost:6333 as persistent Docker service
+**Architecture**:
+- **Service**: Runs on localhost:6333 as persistent Docker container
 - **Collections**:
-  - `coder-memory` for global memories
-  - `proj-{sanitized-project-name}` for project-specific memories
-- **Vector Model**: text-embedding-3-small (1536 dimensions, Cosine similarity)
-- **Metadata**: memory_level, memory_type, file_path, skill_root, tags, title, timestamps
+  - **Global**: `universal-patterns`, `backend-patterns`, `frontend-patterns`, `quant-patterns`, `devops-patterns`, `ml-patterns`, `security-patterns`, `mobile-patterns`
+  - **Project**: `proj-{sanitized-project-name}`
+- **Vector Model**: OpenAI text-embedding-3-small (1536 dimensions, Cosine similarity)
+- **Metadata Fields**: memory_level, memory_type, file_path, skill_root, tags, title, created_at, last_synced
 
-**Integration in SKILL.md Files**:
-- **Recall skills**: Optional vector search in Phase 2 (Step 0) for file hints
-- **Store skills**: Optional vector search in Phase 2 for finding similar memories + dual-write in Phase 4
-- **Query strategy**: Use FULL context/memory text (not just keywords) for better semantic matching
-- **Graceful degradation**: Skills work perfectly if Qdrant unavailable
+**MCP Server V2 Tools** (via `~/.config/claude/mcp.json`):
+- `search_memory(query, level, role?)` → Returns previews only (saves 60% tokens)
+- `get_memory(doc_id, level, role?)` → Full content retrieval
+- `batch_get_memories(doc_ids, level, role?)` → Efficient multi-fetch
 
-**Source of Truth**: Files in `~/.claude/skills/` and `{project}/.claude/skills/` (always). Qdrant is just a search index that may be stale.
+**Key Principle**:
+- **Source of Truth**: Files in `~/.claude/skills/` and `{project}/.claude/skills/` (always)
+- **Qdrant Role**: Search optimization index (may be slightly stale)
+- **Fallback**: Skills work perfectly if Qdrant unavailable (slower file-based search)
+- **Query Strategy**: Use full context/memory text (not just keywords) for better semantic matching
 
-**Sync Strategy**:
-- **Automatic**: Crontab job runs every Monday at 11AM to recreate vector database from files
-- **Setup**: Run the command in `docs/crontab_setup.md` to install crontab entry
-- **Manual**: Run `./sync_memories.sh` anytime to trigger sync
-- **Logs**: Check `sync.log` for sync history
-- Skills can optionally update Qdrant via dual-write, but file writes are primary
+**Sync Strategy** (keeps Qdrant in sync with files):
+- **Automatic**: Crontab job runs Monday 11AM to recreate vector database
+  - Setup: `bash docs/crontab_setup.md`
+  - Check logs: `tail -n 20 sync.log`
+- **Manual**: `./sync_memories.sh` triggers immediate full sync
+- **Optional Dual-Write**: Skills can update Qdrant on store (Phase 4), but file writes are primary
 
-**MCP Server**: Provides `search_memory()` and `store_memory()` tools. See `docs/qdrant_memory_design.md` for implementation details.
+**Reference**: See `docs/qdrant_memory_design.md` for implementation details, MCP protocol, and role-based collection strategy.
 
 ---
 
 ## Success Criteria After Installation
 
-All these files must exist:
-- `~/.claude/skills/coder-memory-store/SKILL.md`
-- `~/.claude/skills/coder-memory-recall/SKILL.md`
-- `~/.claude/skills/templates/project-memory-store/SKILL.md`
-- `~/.claude/skills/templates/project-memory-recall/SKILL.md`
-- `~/.claude/commands/create-project-memory-skills.md`
-- `.claude/skills/project-memory-store/SKILL.md` (in project directory)
-- `.claude/skills/project-memory-recall/SKILL.md` (in project directory)
+### After V3.2 Installation (Recommended)
+
+These files and services must exist:
+- **Skills**: `~/.claude/skills/coder-memory-store/SKILL.md` (V3.2)
+- **Skills**: `~/.claude/skills/coder-memory-recall/SKILL.md` (V3.2)
+- **MCP Server**: `~/scripts/qdrant_memory_mcp_server_v2.py` (installed and executable)
+- **MCP Config**: `~/.config/claude/mcp.json` contains `qdrant-memory-v2` server entry
+- **Vector DB**: `qdrant_storage/` directory exists (may be empty, will populate on first use)
+- **Services**: Qdrant running on `localhost:6333` (verify: `curl http://localhost:6333/collections`)
+
+### After Project Initialization
+
+In your project directory:
+- `.claude/skills/project-memory-store/SKILL.md` (created via `/create-project-memory-skills`)
+- `.claude/skills/project-memory-recall/SKILL.md` (created via `/create-project-memory-skills`)
+
+### After Migration (V3 → V3.2)
+
+Run `python3 migrate_v3_to_v3.2.py` to verify:
+- Legacy V3 memories preserved
+- Collections renamed (coder-memory → universal-patterns, etc.)
+- Qdrant populated from migrated memories
+- Check logs: `/tmp/v3.2_migration.log`
