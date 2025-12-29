@@ -58,13 +58,19 @@ ROLE_COLLECTIONS = {
 
 class MemoryServer:
     def __init__(self):
-        # Try local file-based Qdrant first (no network needed), fallback to HTTP
-        try:
-            logger.info(f"Connecting to local Qdrant at {QDRANT_PATH}")
-            self.client = QdrantClient(path=QDRANT_PATH)
-        except Exception as e:
-            logger.warning(f"Local Qdrant failed ({e}), trying HTTP at {QDRANT_URL}")
+        # Use remote Qdrant if QDRANT_URL is set (not default), otherwise local
+        default_url = "http://localhost:6333"
+        if QDRANT_URL and QDRANT_URL != default_url:
+            logger.info(f"Connecting to remote Qdrant at {QDRANT_URL}")
             self.client = QdrantClient(url=QDRANT_URL)
+        else:
+            # Fallback to local file-based Qdrant
+            try:
+                logger.info(f"Connecting to local Qdrant at {QDRANT_PATH}")
+                self.client = QdrantClient(path=QDRANT_PATH)
+            except Exception as e:
+                logger.warning(f"Local Qdrant failed ({e}), trying HTTP at {QDRANT_URL}")
+                self.client = QdrantClient(url=QDRANT_URL)
         self._embedding_cache = {}
         self._init_collections()
 
