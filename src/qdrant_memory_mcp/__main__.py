@@ -33,9 +33,40 @@ logger = logging.getLogger(__name__)
 
 # Configuration from environment
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
+
+# Embedding provider configuration
+# Options: "openai", "voyage", "nomic"
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "openai").lower()
+
+# Provider-specific API keys
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-EMBEDDING_MODEL = "text-embedding-3-small"
-EMBEDDING_DIMENSION = 1536
+VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY")
+
+# Embedding model configuration per provider
+EMBEDDING_CONFIGS = {
+    "openai": {
+        "model": os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
+        "dimension": int(os.getenv("EMBEDDING_DIMENSION", "1536")),
+        "api_url": "https://api.openai.com/v1/embeddings",
+    },
+    "voyage": {
+        # voyage-3-large (best quality) or voyage-3.5-lite (cost-effective)
+        "model": os.getenv("EMBEDDING_MODEL", "voyage-3-large"),
+        # Voyage supports Matryoshka: 256, 512, 1024, 2048
+        "dimension": int(os.getenv("EMBEDDING_DIMENSION", "1024")),
+        "api_url": "https://api.voyageai.com/v1/embeddings",
+    },
+    "nomic": {
+        "model": os.getenv("EMBEDDING_MODEL", "nomic-embed-text-v2-moe"),
+        "dimension": int(os.getenv("EMBEDDING_DIMENSION", "768")),
+        "api_url": "https://api-atlas.nomic.ai/v1/embedding/text",
+    },
+}
+
+# Get active embedding config
+EMBEDDING_CONFIG = EMBEDDING_CONFIGS.get(EMBEDDING_PROVIDER, EMBEDDING_CONFIGS["openai"])
+EMBEDDING_MODEL: str = str(EMBEDDING_CONFIG["model"])
+EMBEDDING_DIMENSION: int = int(EMBEDDING_CONFIG["dimension"])
 
 # Role-based collections mapping
 ROLE_COLLECTIONS = {
@@ -85,11 +116,8 @@ def _init_collections(client: QdrantClient):
             )
 
 
-def _get_embedding(text: str) -> List[float]:
-    """Get embedding from OpenAI with caching"""
-    if text in _embedding_cache:
-        return _embedding_cache[text]
-
+def _get_embedding_openai(text: str) -> List[float]:
+    """Get embedding from OpenAI API"""
     if not OPENAI_API_KEY:
         raise ValueError("OPENAI_API_KEY not set in environment")
 
@@ -97,22 +125,109 @@ def _get_embedding(text: str) -> List[float]:
         "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json"
     }
+    data = {"input": text, "model": EMBEDDING_MODEL}
 
-    data = {
-        "input": text,
-        "model": EMBEDDING_MODEL
-    }
-
+    api_url: str = str(EMBEDDING_CONFIG["api_url"])
     with httpx.Client() as client:
         response = client.post(
-            "https://api.openai.com/v1/embeddings",
+            api_url,
             headers=headers,
             json=data,
             timeout=30.0
         )
         response.raise_for_status()
-        embedding = response.json()["data"][0]["embedding"]
+        return response.json()["data"][0]["embedding"]
 
+
+def _get_embedding_voyage(text: str) -> List[float]:
+    """
+    Get embedding from Voyage AI (Anthropic's recommended partner).
+
+    Benefits over OpenAI:
+    - +27% accuracy improvement (66.1% vs 39.2%)
+    - Trained on "tricky negatives" for better RAG
+    - 16K context window (vs ~8K)
+    - Matryoshka support for flexible dimensions
+    """
+    if not VOYAGE_API_KEY:
+        raise ValueError("VOYAGE_API_KEY not set. Get one at https://www.voyageai.com/")
+
+    headers = {
+        "Authorization": f"Bearer {VOYAGE_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "input": text,
+        "model": EMBEDDING_MODEL,
+        "input_type": "document",  # or "query" for search queries
+    }
+
+    # Optional: Matryoshka dimension reduction
+    if EMBEDDING_DIMENSION and EMBEDDING_DIMENSION != 1024:
+        data["output_dimension"] = EMBEDDING_DIMENSION
+
+    api_url: str = str(EMBEDDING_CONFIG["api_url"])
+    with httpx.Client() as client:
+        response = client.post(
+            api_url,
+            headers=headers,
+            json=data,
+            timeout=30.0
+        )
+        response.raise_for_status()
+        return response.json()["data"][0]["embedding"]
+
+
+def _get_embedding_nomic(text: str) -> List[float]:
+    """Get embedding from Nomic AI (open-source alternative)"""
+    nomic_api_key = os.getenv("NOMIC_API_KEY")
+    if not nomic_api_key:
+        raise ValueError("NOMIC_API_KEY not set. Get one at https://atlas.nomic.ai/")
+
+    headers = {
+        "Authorization": f"Bearer {nomic_api_key}",
+        "Content-Type": "application/json"
+    }
+    data = {"texts": [text], "model": EMBEDDING_MODEL}
+
+    api_url: str = str(EMBEDDING_CONFIG["api_url"])
+    with httpx.Client() as client:
+        response = client.post(
+            api_url,
+            headers=headers,
+            json=data,
+            timeout=30.0
+        )
+        response.raise_for_status()
+        return response.json()["embeddings"][0]
+
+
+# Embedding provider router
+_EMBEDDING_PROVIDERS = {
+    "openai": _get_embedding_openai,
+    "voyage": _get_embedding_voyage,
+    "nomic": _get_embedding_nomic,
+}
+
+
+def _get_embedding(text: str) -> List[float]:
+    """
+    Get embedding using configured provider with caching.
+
+    Supported providers (set via EMBEDDING_PROVIDER env var):
+    - openai: text-embedding-3-small (default)
+    - voyage: voyage-3-large (Anthropic's recommended partner, +27% accuracy)
+    - nomic: nomic-embed-text-v2-moe (open-source)
+    """
+    if text in _embedding_cache:
+        return _embedding_cache[text]
+
+    provider_fn = _EMBEDDING_PROVIDERS.get(EMBEDDING_PROVIDER)
+    if not provider_fn:
+        raise ValueError(f"Unknown embedding provider: {EMBEDDING_PROVIDER}. "
+                        f"Supported: {list(_EMBEDDING_PROVIDERS.keys())}")
+
+    embedding = provider_fn(text)
     _embedding_cache[text] = embedding
     return embedding
 
@@ -602,7 +717,19 @@ def list_collections() -> str:
 # ============================================================================
 
 if __name__ == "__main__":
-    logger.info("Starting Qdrant Memory MCP Server V3.2 (FastMCP)")
+    logger.info("Starting Qdrant Memory MCP Server V3.3 (FastMCP)")
     logger.info(f"Qdrant URL: {QDRANT_URL}")
-    logger.info(f"OpenAI API Key: {'Set' if OPENAI_API_KEY else 'NOT SET'}")
+    logger.info(f"Embedding Provider: {EMBEDDING_PROVIDER}")
+    logger.info(f"Embedding Model: {EMBEDDING_MODEL}")
+    logger.info(f"Embedding Dimension: {EMBEDDING_DIMENSION}")
+
+    # Log API key status based on provider
+    if EMBEDDING_PROVIDER == "openai":
+        logger.info(f"OpenAI API Key: {'Set' if OPENAI_API_KEY else 'NOT SET'}")
+    elif EMBEDDING_PROVIDER == "voyage":
+        logger.info(f"Voyage API Key: {'Set' if VOYAGE_API_KEY else 'NOT SET'}")
+    elif EMBEDDING_PROVIDER == "nomic":
+        nomic_key = os.getenv("NOMIC_API_KEY")
+        logger.info(f"Nomic API Key: {'Set' if nomic_key else 'NOT SET'}")
+
     mcp.run()

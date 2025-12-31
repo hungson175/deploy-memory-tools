@@ -54,3 +54,4 @@ sync.log
 .pytest_cache/
 .coverage
 htmlcov/
+migration_backup.json
