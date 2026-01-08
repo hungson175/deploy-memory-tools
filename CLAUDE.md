@@ -105,6 +105,10 @@ MCP config in `~/.claude.json`:
 }
 ```
 
+## Important Note
+
+**Don't waste time researching memory mechanisms.** The current system (Qdrant + Voyage AI) is good enough. Big companies will release deeply integrated LLM memory solutions soon - wait for those instead of over-engineering external layers.
+
 ## Other
 
 - `backup/` - Deprecated legacy versions (ignore)

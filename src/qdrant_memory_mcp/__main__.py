@@ -79,6 +79,7 @@ ROLE_COLLECTIONS = {
     "security": "security-patterns",
     "mobile": "mobile-patterns",
     "ai": "ai-patterns",
+    "scrum-master": "scrum-master-patterns",
 }
 
 # Initialize FastMCP server
@@ -245,21 +246,6 @@ def _get_collection_name(memory_level: str, role: Optional[str] = None) -> str:
         return f"proj-{sanitized}"
 
 
-def _extract_preview(document: str) -> Dict[str, str]:
-    """Extract title and description from formatted memory document"""
-    lines = document.split('\n')
-    title = ""
-    description = ""
-
-    for line in lines:
-        if line.startswith("**Title:**"):
-            title = line.replace("**Title:**", "").strip()
-        elif line.startswith("**Description:**"):
-            description = line.replace("**Description:**", "").strip()
-
-    return {"title": title, "description": description}
-
-
 # ============================================================================
 # MCP Tools - Using FastMCP decorators
 # ============================================================================
@@ -326,11 +312,14 @@ def search_memory(query: str, memory_level: str, limit: int = 20, roles: Optiona
 
         previews = []
         for result in all_results:
-            preview = _extract_preview(result.payload.get("document", ""))
+            # Use metadata fields directly (not extracted from document)
+            title = result.payload.get("title", "") or "Untitled"
+            description = result.payload.get("description", "") or "No description"
+
             preview_data = {
                 "doc_id": str(result.id),
-                "title": preview.get("title", "Untitled"),
-                "description": preview.get("description", "No description"),
+                "title": title,
+                "description": description,
                 "similarity": round(result.score, 3),
                 "memory_type": result.payload.get("memory_type", "unknown"),
                 "tags": result.payload.get("tags", []),
