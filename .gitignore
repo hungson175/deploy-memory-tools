@@ -55,3 +55,10 @@ sync.log
 .coverage
 htmlcov/
 migration_backup.json
+
+# Cleanup staging
+.tobe-removed/
+
+# Linting cache
+.mypy_cache/
+.ruff_cache/

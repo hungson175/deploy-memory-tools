@@ -232,31 +232,9 @@ def _get_embedding(text: str) -> List[float]:
     _embedding_cache[text] = embedding
     return embedding
 
-
-def _get_collection_name(memory_level: str, role: Optional[str] = None) -> str:
-    """Get the actual collection name based on memory level and role"""
-    if memory_level == "global":
-        if role and role in ROLE_COLLECTIONS:
-            return ROLE_COLLECTIONS[role]
-        return ROLE_COLLECTIONS["universal"]
-    elif memory_level.startswith("proj-"):
-        return memory_level
-    else:
-        sanitized = memory_level.lower().replace(" ", "-").replace("_", "-")
-        return f"proj-{sanitized}"
-
-
 # ============================================================================
 # MCP Tools - Using FastMCP decorators
 # ============================================================================
-
-class SearchMemoryInput(BaseModel):
-    """Input for searching memories"""
-    query: str = Field(..., description="Search query (2-3 sentence description of what you're looking for)")
-    memory_level: str = Field(..., description="Memory level: 'global' or project name (e.g., 'proj-myproject')")
-    limit: int = Field(default=20, description="Maximum results to return", ge=1, le=100)
-    roles: Optional[List[str]] = Field(default=None, description="List of roles for global memories (Claude Code determines relevant roles automatically)")
-
 
 @mcp.tool(
     name="search_memory",
@@ -268,16 +246,15 @@ class SearchMemoryInput(BaseModel):
         "openWorldHint": True
     }
 )
-def search_memory(query: str, memory_level: str, limit: int = 20, roles: Optional[List[str]] = None) -> str:
+def search_memory(query: str, roles: Optional[List[str]] = None, limit: int = 20) -> str:
     """
     Search for memories using semantic search. Returns ONLY previews (title + description).
     Use get_memory() to retrieve full content.
 
     Args:
         query: Search query (2-3 sentence description of what you're looking for)
-        memory_level: Memory level: 'global' or project name (e.g., 'proj-myproject')
+        roles: List of roles to search (e.g., ["backend", "frontend", "universal"])
         limit: Maximum results to return (default: 20)
-        roles: List of roles for global memories (Claude Code determines relevant roles automatically)
 
     Returns:
         JSON string with preview results
@@ -290,7 +267,11 @@ def search_memory(query: str, memory_level: str, limit: int = 20, roles: Optiona
         query_embedding = _get_embedding(query)
 
         for role in target_roles:
-            collection_name = _get_collection_name(memory_level, role)
+            collection_name = ROLE_COLLECTIONS.get(role)
+
+            if not collection_name:
+                logger.warning(f"Unknown role '{role}', skipping")
+                continue
 
             try:
                 client.get_collection(collection_name)
@@ -352,13 +333,12 @@ def search_memory(query: str, memory_level: str, limit: int = 20, roles: Optiona
         "openWorldHint": True
     }
 )
-def get_memory(doc_id: str, memory_level: str, roles: Optional[List[str]] = None) -> str:
+def get_memory(doc_id: str, roles: Optional[List[str]] = None) -> str:
     """
     Retrieve full memory content by ID. Use after search_memory to get complete details.
 
     Args:
         doc_id: Document ID from search results
-        memory_level: Memory level: 'global' or project name
         roles: Roles to search in (optional, will try all if not specified)
 
     Returns:
@@ -369,7 +349,10 @@ def get_memory(doc_id: str, memory_level: str, roles: Optional[List[str]] = None
         target_roles = roles if roles else list(ROLE_COLLECTIONS.keys())
 
         for role in target_roles:
-            collection_name = _get_collection_name(memory_level, role)
+            collection_name = ROLE_COLLECTIONS.get(role)
+            if not collection_name:
+                continue
+
             try:
                 result = client.retrieve(
                     collection_name=collection_name,
@@ -408,13 +391,12 @@ def get_memory(doc_id: str, memory_level: str, roles: Optional[List[str]] = None
         "openWorldHint": True
     }
 )
-def batch_get_memories(doc_ids: List[str], memory_level: str, roles: Optional[List[str]] = None) -> str:
+def batch_get_memories(doc_ids: List[str], roles: Optional[List[str]] = None) -> str:
     """
     Retrieve multiple memories by IDs efficiently. Use when you need full content for several memories.
 
     Args:
         doc_ids: List of document IDs to retrieve
-        memory_level: Memory level: 'global' or project name
         roles: Roles to search in (optional, will try all if not specified)
 
     Returns:
@@ -427,7 +409,10 @@ def batch_get_memories(doc_ids: List[str], memory_level: str, roles: Optional[Li
         found_ids = set()
 
         for role in target_roles:
-            collection_name = _get_collection_name(memory_level, role)
+            collection_name = ROLE_COLLECTIONS.get(role)
+            if not collection_name:
+                continue
+
             try:
                 results = client.retrieve(
                     collection_name=collection_name,
@@ -472,14 +457,13 @@ def batch_get_memories(doc_ids: List[str], memory_level: str, roles: Optional[Li
         "openWorldHint": True
     }
 )
-def store_memory(document: str, metadata: Dict[str, Any], memory_level: str) -> str:
+def store_memory(document: str, metadata: Dict[str, Any]) -> str:
     """
     Store a new memory in the vector database.
 
     Args:
         document: Full formatted memory text (Title + Description + Content + Tags)
-        metadata: Metadata including memory_type, role, tags, title, etc.
-        memory_level: Memory level: 'global' or project name
+        metadata: Metadata including memory_type, role, tags, title, description, frequency
 
     Returns:
         JSON string with storage confirmation
@@ -487,20 +471,10 @@ def store_memory(document: str, metadata: Dict[str, Any], memory_level: str) -> 
     try:
         client = get_qdrant_client()
         role = metadata.get("role", "universal")
-        collection_name = _get_collection_name(memory_level, role)
+        collection_name = ROLE_COLLECTIONS.get(role)
 
-        if memory_level != "global":
-            try:
-                client.get_collection(collection_name)
-            except Exception:
-                logger.info(f"Creating project collection '{collection_name}'")
-                client.create_collection(
-                    collection_name=collection_name,
-                    vectors_config=models.VectorParams(
-                        size=EMBEDDING_DIMENSION,
-                        distance=models.Distance.COSINE
-                    )
-                )
+        if not collection_name:
+            return json.dumps({"error": f"Unknown role '{role}'. Valid roles: {list(ROLE_COLLECTIONS.keys())}"})
 
         embedding = _get_embedding(document)
         doc_id = str(uuid4())
@@ -545,7 +519,7 @@ def store_memory(document: str, metadata: Dict[str, Any], memory_level: str) -> 
         "openWorldHint": True
     }
 )
-def update_memory(doc_id: str, document: str, metadata: Dict[str, Any], memory_level: str) -> str:
+def update_memory(doc_id: str, document: str, metadata: Dict[str, Any]) -> str:
     """
     Update existing memory (regenerates embedding).
 
@@ -553,7 +527,6 @@ def update_memory(doc_id: str, document: str, metadata: Dict[str, Any], memory_l
         doc_id: Document ID to update
         document: New full formatted memory text
         metadata: Updated metadata
-        memory_level: Memory level
 
     Returns:
         JSON string with update confirmation
@@ -561,7 +534,10 @@ def update_memory(doc_id: str, document: str, metadata: Dict[str, Any], memory_l
     try:
         client = get_qdrant_client()
         role = metadata.get("role", "universal")
-        collection_name = _get_collection_name(memory_level, role)
+        collection_name = ROLE_COLLECTIONS.get(role)
+
+        if not collection_name:
+            return json.dumps({"error": f"Unknown role '{role}'. Valid roles: {list(ROLE_COLLECTIONS.keys())}"})
 
         embedding = _get_embedding(document)
 
@@ -605,13 +581,12 @@ def update_memory(doc_id: str, document: str, metadata: Dict[str, Any], memory_l
         "openWorldHint": True
     }
 )
-def delete_memory(doc_id: str, memory_level: str, roles: Optional[List[str]] = None) -> str:
+def delete_memory(doc_id: str, roles: Optional[List[str]] = None) -> str:
     """
     Delete a memory by ID.
 
     Args:
         doc_id: Document ID to delete
-        memory_level: Memory level
         roles: Roles to search in (optional, will try all if not specified)
 
     Returns:
@@ -624,7 +599,10 @@ def delete_memory(doc_id: str, memory_level: str, roles: Optional[List[str]] = N
         collection_used = None
 
         for role in target_roles:
-            collection_name = _get_collection_name(memory_level, role)
+            collection_name = ROLE_COLLECTIONS.get(role)
+            if not collection_name:
+                continue
+
             try:
                 client.delete(
                     collection_name=collection_name,

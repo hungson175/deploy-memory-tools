@@ -13,7 +13,40 @@ MCP Server for semantic memory storage with Qdrant vector database and two-stage
 
 ## Quick Start
 
-### 1. Installation
+### One-Command Installation (Recommended)
+
+Install everything (MCP server, Docker + Qdrant, skills, subagent, config) with one command:
+
+```bash
+git clone https://github.com/hungson175/deploy-memory-tools.git
+cd deploy-memory-tools
+./install.sh
+```
+
+**What it installs:**
+- ✅ Python package (qdrant-memory-mcp)
+- ✅ Docker container running Qdrant
+- ✅ Skills (coder-memory-recall, coder-memory-store)
+- ✅ Memory-only subagent
+- ✅ MCP server configuration in ~/.claude.json
+- ✅ Environment setup (.env file)
+
+**Requirements:**
+- Docker (running)
+- Python 3.10+
+- Claude Code
+
+**After installation:**
+1. Add your OpenAI API key to `.env`
+2. Restart Claude Code
+3. Memory system auto-triggers on complex tasks
+
+### Manual Installation (Advanced)
+
+<details>
+<summary>Click to expand manual installation steps</summary>
+
+#### 1. Install Python Package
 
 ```bash
 # Using uv (recommended)
@@ -25,40 +58,58 @@ uv pip install -e .
 pip install -e .
 ```
 
-### 2. Configuration
+#### 2. Start Qdrant
+
+```bash
+docker-compose up -d
+```
+
+#### 3. Configuration
 
 Copy `.env.example` to `.env` and configure:
 
 ```bash
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env with your OpenAI API key
 ```
 
-### 3. Run the Server
+#### 4. Install Skills & Subagent
 
 ```bash
-python -m qdrant_memory_mcp
+# Copy skills
+cp -r skills/coder-memory-recall ~/.claude/skills/
+cp -r skills/coder-memory-store ~/.claude/skills/
+
+# Copy subagent
+cp -r subagents/memory-only ~/.claude/subagents/
+```
+
+#### 5. Update ~/.claude.json
+
+See "Configuration for Claude Code" section below.
+
+</details>
+
+### Uninstall
+
+```bash
+./uninstall.sh
 ```
 
 ## Project Structure
 
 ```
 deploy-memory-tools/
-├── src/
-│   └── qdrant_memory_mcp/     # Main package
-│       ├── __init__.py         # Package initialization
-│       ├── __main__.py         # Entry point
-│       ├── server.py           # Server logic
-│       ├── config.py           # Configuration
-│       └── utils/              # Utilities
-│           ├── embeddings.py   # OpenAI embedding functions
-│           └── sanitize.py     # Collection name sanitization
-├── tests/                      # Test suite
-├── docs/                       # Documentation
-├── backup/                     # Old versions backup
-├── pyproject.toml             # Python project config
-├── .env.example               # Environment template
-└── README.md                  # This file
+├── src/qdrant_memory_mcp/     # Main package
+│   ├── __main__.py            # Entry point + server logic
+│   ├── config.py              # Configuration
+│   └── utils/                 # Helper utilities
+├── skills/                    # Claude Code skills
+├── subagents/                 # Memory-only subagent
+├── docs/                      # Documentation & backlog
+├── install.sh                 # One-command installation
+├── uninstall.sh               # Uninstallation
+└── pyproject.toml             # Python project config
 ```
 
 ## MCP Tools
@@ -133,9 +184,7 @@ Add to your `~/.claude.json`:
 
 ## Documentation
 
-- [Quick Start Guide](QUICKSTART.md)
 - [Project Documentation](CLAUDE.md)
-- [Migration Guides](docs/guides/)
 
 ## License
 
