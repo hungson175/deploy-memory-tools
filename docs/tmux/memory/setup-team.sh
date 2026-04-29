@@ -87,8 +87,8 @@ fi
 
 # 8. Start Claude Code in each pane
 echo "Starting Claude Code instances..."
-tmux send-keys -t $SESSION_NAME:0.0 "cd $PROJECT_ROOT && claude" C-m
-tmux send-keys -t $SESSION_NAME:0.1 "cd $PROJECT_ROOT && claude" C-m
+tmux send-keys -t $SESSION_NAME:0.0 "cd $PROJECT_ROOT && unset CLAUDECODE && claude" C-m
+tmux send-keys -t $SESSION_NAME:0.1 "cd $PROJECT_ROOT && unset CLAUDECODE && claude" C-m
 
 # 9. Wait for Claude Code to start
 echo "Waiting for Claude Code to start (15 seconds)..."
